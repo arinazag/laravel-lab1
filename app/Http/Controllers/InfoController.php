@@ -23,7 +23,7 @@ class InfoController extends Controller
             memoryLimit: (int) ini_get('memory_limit')
         );
 
-        return response()->json($serverInfo->toArray());
+        return response()->json($serverInfo);
     }
 
     /**
@@ -38,7 +38,7 @@ class InfoController extends Controller
             requestUri: $request->path()
         );
 
-        return response()->json($clientInfo->toArray());
+        return response()->json($clientInfo);
     }
 
     /**
@@ -51,12 +51,12 @@ class InfoController extends Controller
             $driver = config("database.connections.$connection.driver");
             $databaseName = config("database.connections.$connection.database");
             
-            // Для PostgreSQL
-            $versionInfo = DB::select('SHOW server_version');
-            $serverVersion = $versionInfo[0]->server_version ?? 'Unknown';
+            // Для MySQL
+            $versionInfo = DB::select('SELECT VERSION() as version');
+            $serverVersion = $versionInfo[0]->version ?? 'Unknown';
             
         } catch (\Exception $e) {
-            $serverVersion = 'Unable to get version';
+            $serverVersion = 'Unable to get version: ' . $e->getMessage();
             $databaseName = 'Unable to get database name';
         }
 
@@ -67,6 +67,6 @@ class InfoController extends Controller
             serverVersion: $serverVersion
         );
 
-        return response()->json($databaseInfo->toArray());
+        return response()->json($databaseInfo);
     }
 }
