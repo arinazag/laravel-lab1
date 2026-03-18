@@ -10,9 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class InfoController extends Controller
 {
-    /**
-     * Возвращает информацию о сервере и PHP
-     */
+   
     public function serverInfo()
     {
         $serverInfo = new ServerInfoDTO(
@@ -26,9 +24,7 @@ class InfoController extends Controller
         return response()->json($serverInfo->toArray());
     }
 
-    /**
-     * Возвращает информацию о клиенте
-     */
+  
     public function clientInfo(Request $request)
     {
         $clientInfo = new ClientInfoDTO(
@@ -41,9 +37,6 @@ class InfoController extends Controller
         return response()->json($clientInfo->toArray());
     }
 
-    /**
-     * Возвращает информацию о базе данных
-     */
     public function databaseInfo()
     {
         try {
@@ -51,7 +44,6 @@ class InfoController extends Controller
             $driver = config("database.connections.$connection.driver");
             $databaseName = config("database.connections.$connection.database");
             
-            // Для PostgreSQL
             $versionInfo = DB::select('SHOW server_version');
             $serverVersion = $versionInfo[0]->server_version ?? 'Unknown';
             
