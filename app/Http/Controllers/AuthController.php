@@ -31,11 +31,12 @@ class AuthController extends Controller
         $dto = $request->toDTO();
 
         $user = User::create([
-            'username' => $dto->username,
-            'email' => $dto->email,
-            'password' => Hash::make($request->password),
-            'birthday' => $dto->birthday,
-        ]);
+    'username' => $dto->username,
+    'name' => $dto->username,
+    'email' => $dto->email,
+    'password' => Hash::make($request->password),
+    'birthday' => $dto->birthday,
+]);
 
         $userDTO = new UserDTO(
             id: $user->id,

@@ -31,7 +31,7 @@ class RegisterRequest extends FormRequest
             'birthday' => [
                 'required',
                 'date',
-                'format:Y-m-d',
+                'date_format:Y-m-d',
                 function ($attribute, $value, $fail) {
                     $age = Carbon::parse($value)->age;
                     if ($age < 14) {
