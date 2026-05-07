@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use App\DTO\UserDTO;
 
 class RegisterRequest extends FormRequest
 {
@@ -53,5 +54,15 @@ class RegisterRequest extends FormRequest
             'birthday.date' => 'Birthday must be a valid date in YYYY-MM-DD format',
             'birthday.required' => 'Birthday is required',
         ];
+    }
+
+    public function toDTO(): UserDTO
+    {
+        return new UserDTO(
+            id: 0,
+            username: $this->username,
+            email: $this->email,
+            birthday: $this->birthday,
+        );
     }
 }

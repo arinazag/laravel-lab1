@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\DTO\LoginDTO;
 
 class LoginRequest extends FormRequest
 {
@@ -26,5 +27,13 @@ class LoginRequest extends FormRequest
             'password.regex' => 'Password must contain at least one digit, one special character, one uppercase and one lowercase letter',
             'password.min' => 'Password must be at least 8 characters',
         ];
+    }
+
+    public function toDTO(): LoginDTO
+    {
+        return new LoginDTO(
+            username: $this->username,
+            password: $this->password,
+        );
     }
 }

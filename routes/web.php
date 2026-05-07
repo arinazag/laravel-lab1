@@ -6,19 +6,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-
-use App\Http\Controllers\AuthController;
-
-Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/refresh', [AuthController::class, 'refresh']);
-    
-    Route::middleware(['auth.token'])->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::post('/out', [AuthController::class, 'out']);
-        Route::get('/tokens', [AuthController::class, 'tokens']);
-        Route::post('/out_all', [AuthController::class, 'outAll']);
-        Route::post('/change-password', [AuthController::class, 'changePassword']);
-    });
-});
+Route::get('/info/server', [App\Http\Controllers\InfoController::class, 'serverInfo']);
+Route::get('/info/client', [App\Http\Controllers\InfoController::class, 'clientInfo']);
+Route::get('/info/database', [App\Http\Controllers\InfoController::class, 'databaseInfo']);

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 
 class TokenService
 {
@@ -22,21 +21,19 @@ class TokenService
     }
 
     /**
-     * Генерация пары токенов
+     * Generate a pair of tokens (access + refresh)
      */
     public function generateTokens(User $user): array
     {
         $tokenId = $this->generateTokenId();
-        
-        // Проверяем лимит активных токенов
+
         $this->checkAndEvictTokens($user);
-        
+
         $accessToken = $this->createToken($user, $tokenId, 'access', $this->accessTtl);
         $refreshToken = $this->createToken($user, $tokenId, 'refresh', $this->refreshTtl);
-        
-        // Сохраняем метаданные токена
+
         $this->storeTokenMetadata($user->id, $tokenId);
-        
+
         return [
             'access_token' => $accessToken,
             'refresh_token' => $refreshToken,
@@ -44,7 +41,7 @@ class TokenService
     }
 
     /**
-     * Проверка валидности токена
+     * Validate a token and return its payload, or null if invalid
      */
     public function validateToken(string $token): ?object
     {
@@ -52,47 +49,43 @@ class TokenService
         if (count($parts) !== 3) {
             return null;
         }
-        
+
         list($headerEncoded, $payloadEncoded, $signature) = $parts;
-        
-        // Проверяем подпись
+
         $expectedSignature = hash_hmac('sha256', $headerEncoded . '.' . $payloadEncoded, $this->secret);
         if (!hash_equals($expectedSignature, $signature)) {
             return null;
         }
-        
+
         $payload = json_decode(base64_decode($payloadEncoded));
-        
-        // Проверяем срок действия
+
         if ($payload->exp < time()) {
             return null;
         }
-        
-        // Проверяем, не отозван ли токен
+
         $cacheKey = "token:{$payload->user_id}:{$payload->token_id}";
         if (!Cache::has($cacheKey)) {
             return null;
         }
-        
+
         return $payload;
     }
 
     /**
-     * Отзыв конкретного токена
+     * Revoke a specific token
      */
     public function revokeToken(int $userId, string $tokenId): void
     {
         $cacheKey = "token:{$userId}:{$tokenId}";
         Cache::forget($cacheKey);
-        
-        // Удаляем из списка токенов пользователя
+
         $userTokens = Cache::get("user_tokens:{$userId}", []);
         $userTokens = array_filter($userTokens, fn($id) => $id !== $tokenId);
         Cache::put("user_tokens:{$userId}", $userTokens);
     }
 
     /**
-     * Отзыв всех токенов пользователя
+     * Revoke all tokens for a user
      */
     public function revokeAllTokens(User $user): void
     {
@@ -104,36 +97,48 @@ class TokenService
     }
 
     /**
-     * Обновление токенов
+     * Refresh tokens using a refresh token.
+     * If token is invalid/used, revokes ALL tokens for security.
      */
     public function refreshTokens(string $refreshToken): ?array
     {
-        $payload = $this->validateToken($refreshToken);
-        
-        if (!$payload || $payload->type !== 'refresh') {
+        // Try to extract user_id even from expired token for security revocation
+        $payload = $this->decodeTokenPayload($refreshToken);
+
+        // Validate token fully
+        $validPayload = $this->validateToken($refreshToken);
+
+        if (!$validPayload || $validPayload->type !== 'refresh') {
+            // Security measure: revoke ALL tokens if refresh token is invalid
+            if ($payload && isset($payload->user_id)) {
+                $user = User::find($payload->user_id);
+                if ($user) {
+                    $this->revokeAllTokens($user);
+                }
+            }
             return null;
         }
-        
-        $user = User::find($payload->user_id);
+
+        $user = User::find($validPayload->user_id);
         if (!$user) {
             return null;
         }
-        
-        // Отзываем старый токен
-        $this->revokeToken($payload->user_id, $payload->token_id);
-        
-        // Генерируем новую пару
+
+        // Revoke the old token pair
+        $this->revokeToken($validPayload->user_id, $validPayload->token_id);
+
+        // Generate new pair
         return $this->generateTokens($user);
     }
 
     /**
-     * Получение списка активных токенов пользователя
+     * Get list of active tokens for a user
      */
     public function getUserTokens(User $user): array
     {
         $userTokens = Cache::get("user_tokens:{$user->id}", []);
         $tokens = [];
-        
+
         foreach ($userTokens as $tokenId) {
             $cacheKey = "token:{$user->id}:{$tokenId}";
             $metadata = Cache::get($cacheKey);
@@ -141,10 +146,11 @@ class TokenService
                 $tokens[] = [
                     'token_id' => $tokenId,
                     'created_at' => $metadata['created_at'],
+                    'expires_at' => $metadata['expires_at'],
                 ];
             }
         }
-        
+
         return $tokens;
     }
 
@@ -163,23 +169,39 @@ class TokenService
             'iat' => time(),
             'exp' => time() + ($ttl * 60),
         ];
-        
+
         $header = ['alg' => 'HS256', 'typ' => 'JWT'];
-        
+
         $headerEncoded = base64_encode(json_encode($header));
         $payloadEncoded = base64_encode(json_encode($payload));
-        
+
         $signature = hash_hmac('sha256', $headerEncoded . '.' . $payloadEncoded, $this->secret);
-        
+
         return $headerEncoded . '.' . $payloadEncoded . '.' . $signature;
+    }
+
+    /**
+     * Decode token payload WITHOUT validation (used for security revocation)
+     */
+    private function decodeTokenPayload(string $token): ?object
+    {
+        $parts = explode('.', $token);
+        if (count($parts) !== 3) {
+            return null;
+        }
+
+        $payloadEncoded = $parts[1];
+        $payload = json_decode(base64_decode($payloadEncoded));
+
+        return $payload ?: null;
     }
 
     private function checkAndEvictTokens(User $user): void
     {
         $userTokens = Cache::get("user_tokens:{$user->id}", []);
-        
+
         if (count($userTokens) >= $this->maxActiveTokens) {
-            // Удаляем самый старый токен
+            // Remove the oldest token
             $oldestTokenId = array_shift($userTokens);
             Cache::forget("token:{$user->id}:{$oldestTokenId}");
             Cache::put("user_tokens:{$user->id}", $userTokens);
@@ -190,10 +212,11 @@ class TokenService
     {
         $metadata = [
             'created_at' => now()->toDateTimeString(),
+            'expires_at' => now()->addMinutes($this->refreshTtl)->toDateTimeString(),
         ];
-        
+
         Cache::put("token:{$userId}:{$tokenId}", $metadata, now()->addMinutes($this->refreshTtl));
-        
+
         $userTokens = Cache::get("user_tokens:{$userId}", []);
         $userTokens[] = $tokenId;
         Cache::put("user_tokens:{$userId}", $userTokens);

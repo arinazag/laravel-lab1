@@ -9,9 +9,9 @@ use App\DTO\TokenListDTO;
 use App\Services\TokenService;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\ChangePasswordRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -23,16 +23,18 @@ class AuthController extends Controller
     }
 
     /**
-     * Регистрация нового пользователя
+     * Register a new user
      * POST /api/auth/register
      */
     public function register(RegisterRequest $request)
     {
+        $dto = $request->toDTO();
+
         $user = User::create([
-            'username' => $request->username,
-            'email' => $request->email,
+            'username' => $dto->username,
+            'email' => $dto->email,
             'password' => Hash::make($request->password),
-            'birthday' => $request->birthday,
+            'birthday' => $dto->birthday,
         ]);
 
         $userDTO = new UserDTO(
@@ -46,14 +48,16 @@ class AuthController extends Controller
     }
 
     /**
-     * Авторизация (логин)
+     * Login (authorization)
      * POST /api/auth/login
      */
     public function login(LoginRequest $request)
     {
-        $user = User::where('username', $request->username)->first();
+        $dto = $request->toDTO();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        $user = User::where('username', $dto->username)->first();
+
+        if (!$user || !Hash::check($dto->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
@@ -76,7 +80,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Получение информации о текущем пользователе
+     * Get current user info
      * GET /api/auth/me
      */
     public function me(Request $request)
@@ -98,7 +102,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Выход (отзыв текущего токена)
+     * Logout (revoke current token)
      * POST /api/auth/out
      */
     public function out(Request $request)
@@ -109,7 +113,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Получение списка активных токенов
+     * Get list of active tokens
      * GET /api/auth/tokens
      */
     public function tokens(Request $request)
@@ -123,7 +127,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Выход со всех устройств
+     * Logout from all devices
      * POST /api/auth/out_all
      */
     public function outAll(Request $request)
@@ -135,7 +139,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Обновление токена доступа
+     * Refresh access token
      * POST /api/auth/refresh
      */
     public function refresh(Request $request)
@@ -146,27 +150,21 @@ class AuthController extends Controller
             return response()->json(['message' => 'Refresh token required'], 400);
         }
 
-        $tokens = $this->tokenService->refreshTokens($refreshToken);
+        $result = $this->tokenService->refreshTokens($refreshToken);
 
-        if (!$tokens) {
-            return response()->json(['message' => 'Invalid or expired refresh token'], 401);
+        if (!$result) {
+            return response()->json(['message' => 'Invalid or expired refresh token. All tokens revoked for security.'], 401);
         }
 
-        return response()->json($tokens, 200);
+        return response()->json($result, 200);
     }
 
     /**
-     * Изменение пароля
+     * Change password
      * POST /api/auth/change-password
      */
-    public function changePassword(Request $request)
+    public function changePassword(ChangePasswordRequest $request)
     {
-        $request->validate([
-            'current_password' => 'required|string',
-            'new_password' => 'required|string|min:8|regex:/^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[a-z])(?=.*[A-Z]).*$/',
-            'c_password' => 'required|same:new_password',
-        ]);
-
         $user = User::find($request->auth_user_id);
 
         if (!Hash::check($request->current_password, $user->password)) {
