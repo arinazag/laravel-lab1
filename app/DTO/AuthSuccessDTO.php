@@ -5,9 +5,9 @@ namespace App\DTO;
 class AuthSuccessDTO
 {
     public function __construct(
-        public readonly string $access_token,
-        public readonly string $refresh_token,
-        public readonly UserDTO $user,
+        public readonly string $access_token,   // токен доступа (60 минут)
+        public readonly string $refresh_token,  // токен обновления (7 дней)
+        public readonly UserDTO $user,          // данные пользователя
     ) {}
 
     public function toArray(): array
