@@ -20,9 +20,7 @@ class TokenService
         $this->maxActiveTokens = (int) env('MAX_ACTIVE_TOKENS', 5);
     }
 
-    /**
-     * Generate a pair of tokens (access + refresh)
-     */
+    
     public function generateTokens(User $user): array
     {
         $tokenId = $this->generateTokenId();
@@ -40,9 +38,7 @@ class TokenService
         ];
     }
 
-    /**
-     * Validate a token and return its payload, or null if invalid
-     */
+   
     public function validateToken(string $token): ?object
     {
         $parts = explode('.', $token);
@@ -71,9 +67,7 @@ class TokenService
         return $payload;
     }
 
-    /**
-     * Revoke a specific token
-     */
+    
     public function revokeToken(int $userId, string $tokenId): void
     {
         $cacheKey = "token:{$userId}:{$tokenId}";
@@ -84,9 +78,7 @@ class TokenService
         Cache::put("user_tokens:{$userId}", $userTokens);
     }
 
-    /**
-     * Revoke all tokens for a user
-     */
+   
     public function revokeAllTokens(User $user): void
     {
         $userTokens = Cache::get("user_tokens:{$user->id}", []);
@@ -96,20 +88,16 @@ class TokenService
         Cache::forget("user_tokens:{$user->id}");
     }
 
-    /**
-     * Refresh tokens using a refresh token.
-     * If token is invalid/used, revokes ALL tokens for security.
-     */
+    
     public function refreshTokens(string $refreshToken): ?array
     {
-        // Try to extract user_id even from expired token for security revocation
+    
         $payload = $this->decodeTokenPayload($refreshToken);
 
-        // Validate token fully
         $validPayload = $this->validateToken($refreshToken);
 
         if (!$validPayload || $validPayload->type !== 'refresh') {
-            // Security measure: revoke ALL tokens if refresh token is invalid
+           
             if ($payload && isset($payload->user_id)) {
                 $user = User::find($payload->user_id);
                 if ($user) {
@@ -124,16 +112,11 @@ class TokenService
             return null;
         }
 
-        // Revoke the old token pair
         $this->revokeToken($validPayload->user_id, $validPayload->token_id);
 
-        // Generate new pair
         return $this->generateTokens($user);
     }
 
-    /**
-     * Get list of active tokens for a user
-     */
     public function getUserTokens(User $user): array
     {
         $userTokens = Cache::get("user_tokens:{$user->id}", []);
@@ -180,9 +163,7 @@ class TokenService
         return $headerEncoded . '.' . $payloadEncoded . '.' . $signature;
     }
 
-    /**
-     * Decode token payload WITHOUT validation (used for security revocation)
-     */
+   
     private function decodeTokenPayload(string $token): ?object
     {
         $parts = explode('.', $token);
@@ -201,7 +182,7 @@ class TokenService
         $userTokens = Cache::get("user_tokens:{$user->id}", []);
 
         if (count($userTokens) >= $this->maxActiveTokens) {
-            // Remove the oldest token
+        
             $oldestTokenId = array_shift($userTokens);
             Cache::forget("token:{$user->id}:{$oldestTokenId}");
             Cache::put("user_tokens:{$user->id}", $userTokens);
