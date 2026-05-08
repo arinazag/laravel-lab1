@@ -22,10 +22,6 @@ class AuthController extends Controller
         $this->tokenService = $tokenService;
     }
 
-    /**
-     * Register a new user
-     * POST /api/auth/register
-     */
     public function register(RegisterRequest $request)
     {
         $dto = $request->toDTO();
@@ -48,10 +44,6 @@ class AuthController extends Controller
         return response()->json($userDTO->toArray(), 201);
     }
 
-    /**
-     * Login (authorization)
-     * POST /api/auth/login
-     */
     public function login(LoginRequest $request)
     {
         $dto = $request->toDTO();
@@ -80,10 +72,6 @@ class AuthController extends Controller
         return response()->json($authSuccessDTO->toArray(), 200);
     }
 
-    /**
-     * Get current user info
-     * GET /api/auth/me
-     */
     public function me(Request $request)
     {
         $user = User::find($request->auth_user_id);
@@ -102,10 +90,6 @@ class AuthController extends Controller
         return response()->json($userDTO->toArray(), 200);
     }
 
-    /**
-     * Logout (revoke current token)
-     * POST /api/auth/out
-     */
     public function out(Request $request)
     {
         $this->tokenService->revokeToken($request->auth_user_id, $request->auth_token_id);
@@ -113,10 +97,6 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out successfully'], 200);
     }
 
-    /**
-     * Get list of active tokens
-     * GET /api/auth/tokens
-     */
     public function tokens(Request $request)
     {
         $user = User::find($request->auth_user_id);
@@ -127,10 +107,6 @@ class AuthController extends Controller
         return response()->json($tokenListDTO->toArray(), 200);
     }
 
-    /**
-     * Logout from all devices
-     * POST /api/auth/out_all
-     */
     public function outAll(Request $request)
     {
         $user = User::find($request->auth_user_id);
@@ -139,10 +115,6 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out from all devices'], 200);
     }
 
-    /**
-     * Refresh access token
-     * POST /api/auth/refresh
-     */
     public function refresh(Request $request)
     {
         $refreshToken = $request->input('refresh_token');
@@ -160,10 +132,6 @@ class AuthController extends Controller
         return response()->json($result, 200);
     }
 
-    /**
-     * Change password
-     * POST /api/auth/change-password
-     */
     public function changePassword(ChangePasswordRequest $request)
     {
         $user = User::find($request->auth_user_id);
