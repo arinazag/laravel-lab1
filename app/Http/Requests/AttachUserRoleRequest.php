@@ -9,9 +9,6 @@ class AttachUserRoleRequest extends FormRequest
 {
     public function authorize()
     {
-        if (!$this->user()->can('update-user')) {
-            throw new \Illuminate\Auth\Access\AuthorizationException('update-user');
-        }
         return true;
     }
 

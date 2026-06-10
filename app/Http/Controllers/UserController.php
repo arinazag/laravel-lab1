@@ -8,10 +8,9 @@ use Illuminate\Http\JsonResponse;
 
 class UserController extends Controller
 {
-    public function index(): JsonResponse
+    public function index()
     {
-        $users = User::all();
-        $data = $users->map(fn($user) => UserDTO::fromModel($user))->values();
-        return response()->json($data);
+        $users = User::with('roles')->get();
+        return response()->json($users);
     }
 }
